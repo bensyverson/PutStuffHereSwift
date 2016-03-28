@@ -2,7 +2,7 @@ import Foundation
 import KituraTemplateEngine
 
 public protocol ParentheticalDelegate {
-	func render(variable: String, parenthetical: String, context: [String : Any]) -> String
+	func render(value: Any, parenthetical: String) -> String
 }
 
 
@@ -41,30 +41,58 @@ private class SimpleTemplate {
 	}
 	
 	func render(context: [String: Any], delegate: ParentheticalDelegate?) -> String {
-		return "Ok"
+		return "Unimplemented."
 	}
 }
 
+private class HTMLTemplate : SimpleTemplate {
+	override func render(context: [String: Any], delegate: ParentheticalDelegate?) -> String {
+		return components.map{
+			(component) -> String in
+			switch component {
+			case let aString as TemplateString:
+				return aString.string
+			case let aVar as TemplateVariable:
+				guard let aValue = context[aVar.variable] else {
+					// If there is no value in the context, return an empty string.
+					return ""
+				}
+				if let aParenthetical = aVar.parenthetical {
+					if aParenthetical == Parentheticals.Unescaped.rawValue {
+						return stringify(aValue)
+					} else if let aDelegate = delegate  {
+						return aDelegate.render(aValue, parenthetical: aParenthetical)
+					}
+				}
+				return escapeHTML(stringify(aValue))
+			default:
+				return "Unknown component type."
+			}
+			}.reduce("", combine:+)
+	}
+}
+
+private func stringify(thing: Any) -> String {
+	return ""
+}
+
 private func escapeHTML(html: String) -> String {
-	return html.stringByReplacingOccurrencesOfString("___•••amp•••___/", withString:"")
+	return html.stringByReplacingOccurrencesOfString("___•••amp•••___", withString:"")
 		.stringByReplacingOccurrencesOfString("&",  withString:"___•••amp•••___")
 		.stringByReplacingOccurrencesOfString("<",  withString:"&lt;")
 		.stringByReplacingOccurrencesOfString(">",  withString:"&gt;")
 		.stringByReplacingOccurrencesOfString("'",  withString:"&apos;")
 		.stringByReplacingOccurrencesOfString("\"", withString:"&quot;")
-		.stringByReplacingOccurrencesOfString("___•••amp•••___/", withString:"&amp;")
-		.stringByReplacingOccurrencesOfString("<", withString: "&gt;")
+		.stringByReplacingOccurrencesOfString("___•••amp•••___", withString:"&amp;")
 }
 
 public class PutStuffHere : TemplateEngine {
 	var parentheticalDelegate : ParentheticalDelegate? = nil
-
-	private var templates : [String : SimpleTemplate]
+	private var templates : [String : SimpleTemplate] = [:]
 	
 	init(){
-		parentheticalDelegate = nil
-		templates = [:]
 	}
+	
 	// protocol getter
 	public var fileExtension : String {
 		get {
@@ -75,7 +103,7 @@ public class PutStuffHere : TemplateEngine {
 	public func render(filePath: String, context: [String: Any]) throws -> String {
 		if templates[filePath] == nil {
 			let rawString = try String(contentsOfFile: filePath, encoding: NSUTF8StringEncoding)
-			templates[filePath] = SimpleTemplate(components: parseComponents(rawString))
+			templates[filePath] = HTMLTemplate(components: parseComponents(rawString))
 		}
 		
 		guard let template = templates[filePath] else {
@@ -86,6 +114,7 @@ public class PutStuffHere : TemplateEngine {
 	}
 	
 	private func parseComponents(rawString: String) -> [TemplateComponent] {
+		
 		return []
 	}
 }
