@@ -100,6 +100,7 @@ func matchesForRegexInText(regex: NSRegularExpression, text: String) -> [String]
 public class PutStuffHere : TemplateEngine {
 	var parentheticalDelegate : ParentheticalDelegate? = nil
 	
+	var shouldExtractBody = true
 	// The main regex. This can and should be extended with other syntaxes.
 	private let regex = try! NSRegularExpression(pattern: "([\\s\\W]|^)(?:(?:put|insert)\\s+(.+?\\S)(?:\\s*\\(([^)]+)\\))?\\s+here)([\\W\\s]|$)", options: [.CaseInsensitive])
 
@@ -118,7 +119,8 @@ public class PutStuffHere : TemplateEngine {
 	public func render(filePath: String, context: [String: Any]) throws -> String {
 		if templates[filePath] == nil {
 			let rawString = try String(contentsOfFile: filePath, encoding: NSUTF8StringEncoding)
-			templates[filePath] = HTMLTemplate(components: parseComponents(rawString))
+			let innerString = shouldExtractBody ? extractBody(rawString) : rawString
+			templates[filePath] = HTMLTemplate(components: parseComponents(innerString))
 		}
 		
 		guard let template = templates[filePath] else {
@@ -126,6 +128,8 @@ public class PutStuffHere : TemplateEngine {
 		}
 		return template.render(context, delegate: parentheticalDelegate)
 	}
+	
+	
 	
 	private func getLocalRegex() -> NSRegularExpression {
 		return regex
@@ -153,7 +157,28 @@ public class PutStuffHere : TemplateEngine {
 			components.append(TemplateVariable(variable:nsString.substringWithRange(p2), parenthetical: parenthetical))
 			lastIndex = (p0.location + p0.length) - 1
 		}
+		if lastIndex < (nsString.length - 1) {
+			components.append(TemplateString(string: nsString.substringWithRange(NSRange(location:lastIndex, length: nsString.length - lastIndex))))
+		}
 		return components
+	}
+	
+	private func extractBody(html: String) -> String {
+		if html.containsString("<body") {
+			let openTag = try! NSRegularExpression(pattern: "^.*?<body[^>]*>\\s*", options: [.CaseInsensitive, .DotMatchesLineSeparators])
+			let closeTag = try! NSRegularExpression(pattern: "\\s*</\\s*body>.*$", options: [.CaseInsensitive, .DotMatchesLineSeparators])
+			
+			let sansOpen = openTag.stringByReplacingMatchesInString(html, options: [], range: NSRange(location: 0, length: html.characters.count), withTemplate: "")
+			return closeTag.stringByReplacingMatchesInString(sansOpen, options: [], range: NSRange(location: 0, length: sansOpen.characters.count), withTemplate: "")
+		} else if html.containsString("<html") {
+			// Technically, <body> is optional.
+			let openTag = try! NSRegularExpression(pattern: "^.*?<html[^>]*>\\s*", options: .CaseInsensitive)
+			let closeTag = try! NSRegularExpression(pattern: "\\s*</\\s*html>.*$", options: .CaseInsensitive)
+			
+			let sansOpen = openTag.stringByReplacingMatchesInString(html, options: [], range: NSRange(location: 0, length: html.characters.count), withTemplate: "")
+			return closeTag.stringByReplacingMatchesInString(sansOpen, options: [], range: NSRange(location: 0, length: sansOpen.characters.count), withTemplate: "")
+		}
+		return html
 	}
 }
 
