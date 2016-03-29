@@ -106,7 +106,7 @@ public class PutStuffHere : TemplateEngine {
 
 	private var templates : [String : SimpleTemplate] = [:]
 	
-	init(){
+	public init(){
 	}
 	
 	// protocol getter
