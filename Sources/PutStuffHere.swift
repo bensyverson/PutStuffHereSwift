@@ -105,16 +105,10 @@ public class PutStuffHere : TemplateEngine {
 	private let regex = try! NSRegularExpression(pattern: "([\\s\\W]|^)(?:(?:put|insert)\\s+(.+?\\S)(?:\\s*\\(([^)]+)\\))?\\s+here)([\\W\\s]|$)", options: [.CaseInsensitive])
 
 	private var templates : [String : SimpleTemplate] = [:]
-	
-	public init(){
-	}
+	public init(){}
 	
 	// protocol getter
-	public var fileExtension : String {
-		get {
-			return "html"
-		}
-	}
+	public var fileExtension : String { return "html" }
 	// protocol method
 	public func render(filePath: String, context: [String: Any]) throws -> String {
 		if templates[filePath] == nil {
@@ -180,15 +174,4 @@ public class PutStuffHere : TemplateEngine {
 		}
 		return html
 	}
-}
-
-let psh = PutStuffHere()
-do {
-	let templated = try psh.render("Tests/test.html", context: [
-		"title": "This < that & such",
-		"graf": "<i>Yeah!</i>"
-	])
-	print(templated)
-} catch {
-	print("Couldn't open file")
 }
