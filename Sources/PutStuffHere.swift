@@ -67,7 +67,7 @@ private class HTMLTemplate : SimpleTemplate {
 			default:
 				return "Unknown component type."
 			}
-		}.reduce("", combine:+) // concatenate the components
+			}.reduce("", combine:+) // concatenate the components
 	}
 }
 
@@ -75,11 +75,24 @@ private func stringify(thing: Any) -> String {
 	switch thing {
 	case let aString as String:
 		return aString
+	case let aNum as Float:
+		return String(aNum)
+	case let aNum as Double:
+		return String(aNum)
+	case let aNum as Int:
+		return String(aNum)
+	case let aNum as UInt:
+		return String(aNum)
+	case let aNum as Bool:
+		return String(aNum)
 	default:
-		return "\(thing)"
+		// Print a warning, but don't throw an exception. This is a runtime error that can and should be glossed over. But do add an HTML comment to aid in debugging.
+		print("WARNING: Tried to templatize a non-String or non-Number value:\(thing)")
+		return "<!--[skipped unknown type]-->"
 	}
 }
 
+//
 private func escapeHTML(html: String) -> String {
 	return html.stringByReplacingOccurrencesOfString("___•••amp•••___", withString:"")
 		.stringByReplacingOccurrencesOfString("&",  withString:"___•••amp•••___")
@@ -90,22 +103,22 @@ private func escapeHTML(html: String) -> String {
 		.stringByReplacingOccurrencesOfString("___•••amp•••___", withString:"&amp;")
 }
 
-func matchesForRegexInText(regex: NSRegularExpression, text: String) -> [String] {
-	let nsString = text as NSString
-	let results = regex.matchesInString(text,
-										options: [], range: NSMakeRange(0, nsString.length))
-	return results.map { nsString.substringWithRange($0.range)}
-}
-
 public class PutStuffHere : TemplateEngine {
+	// Singleton pattern:
+	public static let sharedInstance = PutStuffHere()
+	private init(){}
+	
+	// Support for 3rd party parenthetical handling:
 	var parentheticalDelegate : ParentheticalDelegate? = nil
 	
+	// Set to false if you want to include the entire HTML template; otherwise, PSH extracts whatever is in the body, so multiple templates/views can be concatenated before getting wrapped in a master <html>.
 	var shouldExtractBody = true
+	
 	// The main regex. This can and should be extended with other syntaxes.
 	private let regex = try! NSRegularExpression(pattern: "([\\s\\W]|^)(?:(?:put|insert)\\s+(.+?\\S)(?:\\s*\\(([^)]+)\\))?\\s+here)([\\W\\s]|$)", options: [.CaseInsensitive])
-
+	
+	// Internal cache
 	private var templates : [String : SimpleTemplate] = [:]
-	public init(){}
 	
 	// protocol getter
 	public var fileExtension : String { return "html" }
@@ -123,12 +136,12 @@ public class PutStuffHere : TemplateEngine {
 		return template.render(context, delegate: parentheticalDelegate)
 	}
 	
-	
-	
+	// For now, this returns the English regex, but in the future it could be smarter.
 	private func getLocalRegex() -> NSRegularExpression {
 		return regex
 	}
 	
+	// Split template into plain string components (`<h1><span>`) and variables (`put title here`).
 	private func parseComponents(text: String) -> [TemplateComponent] {
 		let localRegex = getLocalRegex()
 		
@@ -157,6 +170,7 @@ public class PutStuffHere : TemplateEngine {
 		return components
 	}
 	
+	// This is a pretty terrible method, but it works for now.
 	private func extractBody(html: String) -> String {
 		if html.containsString("<body") {
 			let openTag = try! NSRegularExpression(pattern: "^.*?<body[^>]*>\\s*", options: [.CaseInsensitive, .DotMatchesLineSeparators])
