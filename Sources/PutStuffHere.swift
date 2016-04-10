@@ -72,7 +72,7 @@ public protocol ParentheticalDelegate {
 	func render(value: Any, parenthetical: String) -> String
 }
 
-//There is one exception; Put Stuff Here escapes a few HTML-oriented characters by default, so if your context contains `"title": "Me & You"`, the output of `put title here` will be `Me &amp; You`. But we need a way to insert raw HTML if necessary. That's why Put Stuff Here defines one built-in parenthetical to turn off character escaping: `(unescaped)`.
+// There is one exception; Put Stuff Here escapes a few HTML-oriented characters by default, so if your context contains `"title": "Me & You"`, the output of `put title here` will be `Me &amp; You`. But we need a way to insert raw HTML if necessary. That's why Put Stuff Here defines one built-in parenthetical to turn off character escaping: `(unescaped)`.
 
 enum Parentheticals : String {
 	case Unescaped = "unescaped"
@@ -164,19 +164,19 @@ private class SimpleTemplate {
 
 private class HTMLTemplate : SimpleTemplate {
 	override func escapeRawCharacters(rawString: String) -> String {
-		return rawString.stringByReplacingOccurrencesOfString("___•••amp•••___", withString:"")
-		.stringByReplacingOccurrencesOfString("&",  withString:"___•••amp•••___")
-		.stringByReplacingOccurrencesOfString("<",  withString:"&lt;")
-		.stringByReplacingOccurrencesOfString(">",  withString:"&gt;")
-		.stringByReplacingOccurrencesOfString("'",  withString:"&apos;")
-		.stringByReplacingOccurrencesOfString("\"", withString:"&quot;")
-		.stringByReplacingOccurrencesOfString("___•••amp•••___", withString:"&amp;")
+		return rawString.replacingOccurrences(of: "___•••amp•••___", with:"")
+			.replacingOccurrences(of:"&",  with:"___•••amp•••___")
+			.replacingOccurrences(of:"<",  with:"&lt;")
+			.replacingOccurrences(of:">",  with:"&gt;")
+			.replacingOccurrences(of:"'",  with:"&apos;")
+			.replacingOccurrences(of:"\"", with:"&quot;")
+			.replacingOccurrences(of:"___•••amp•••___", with:"&amp;")
 	}
 }
 
 // ## Template parsing
 // Now we just need to parse the input HTML into `TemplateComponents`. Here's our main regex. This can and should be extended with other syntaxes and languages. For now, getLocalRegex() always returns this:
-private let regex = try! NSRegularExpression(pattern: "([\\s\\W]|^)(?:(?:put|insert)\\s+(.+?\\S)(?:\\s*\\(([^)]+)\\))?\\s+here)([\\W\\s]|$)", options: [.CaseInsensitive])
+private let regex = try! NSRegularExpression(pattern: "([\\s\\W]|^)(?:(?:put|insert)\\s+(.+?\\S)(?:\\s*\\(([^)]+)\\))?\\s+here)([\\W\\s]|$)", options: [.caseInsensitive])
 
 private func getLocalRegex() -> NSRegularExpression {
 	return regex
@@ -187,33 +187,33 @@ private func parseComponents(text: String) -> [TemplateComponent] {
 	let localRegex = getLocalRegex()
 	
 	let nsString = text as NSString
-	let results = localRegex.matchesInString(text, options: [], range: NSMakeRange(0, nsString.length))
+	let results = localRegex.matches(in:text, options: [], range: NSMakeRange(0, nsString.length))
 	
 	var lastIndex = 0
 	var components : [TemplateComponent] = []
 	
-	for (_, result) in results.enumerate(){
-		let p0 = result.rangeAtIndex(0)
-		let p2 = result.rangeAtIndex(2)
-		let p3 = result.rangeAtIndex(3)
+	for (_, result) in results.enumerated(){
+		let p0 = result.range(at:0)
+		let p2 = result.range(at:2)
+		let p3 = result.range(at:3)
 		
-		let parenthetical : String? = (p3.location != Foundation.NSNotFound) ?  nsString.substringWithRange(p3) : nil
+		let parenthetical : String? = (p3.location != Foundation.NSNotFound) ?  nsString.substring(with:p3) : nil
 		
 		if (p0.location + 1) > lastIndex {
-			components.append(TemplateString(string: nsString.substringWithRange(NSRange(location:lastIndex, length: (p0.location - lastIndex) + 1))))
+			components.append(TemplateString(string: nsString.substring(with:NSRange(location:lastIndex, length: (p0.location - lastIndex) + 1))))
 		}
-		components.append(TemplateVariable(variable:nsString.substringWithRange(p2), parenthetical: parenthetical))
+		components.append(TemplateVariable(variable:nsString.substring(with:p2), parenthetical: parenthetical))
 		lastIndex = (p0.location + p0.length) - 1
 	}
 	if lastIndex < (nsString.length - 1) {
-		components.append(TemplateString(string: nsString.substringWithRange(NSRange(location:lastIndex, length: nsString.length - lastIndex))))
+		components.append(TemplateString(string: nsString.substring(with:NSRange(location:lastIndex, length: nsString.length - lastIndex))))
 	}
 	return components
 }
 
 
 // KituraTemplateEngine expects templating engines to throw errors if they run into major problems. For us, the worst that can happen is that we can't find the template file we've been pointed to.
-enum PutErrorsHere : ErrorType {
+enum PutErrorsHere : Int, ErrorProtocol, RawRepresentable {
 	case FileReadError
 }
 
@@ -235,19 +235,19 @@ public class PutStuffHere : TemplateEngine {
 	
 	// This is a pretty terrible method, but it works for now.
 	private func extractBody(html: String) -> String {
-		if html.containsString("<body") {
-			let openTag = try! NSRegularExpression(pattern: "^.*?<body[^>]*>\\s*", options: [.CaseInsensitive, .DotMatchesLineSeparators])
-			let closeTag = try! NSRegularExpression(pattern: "\\s*</\\s*body>.*$", options: [.CaseInsensitive, .DotMatchesLineSeparators])
+		if html.contains("<body") {
+			let openTag = try! NSRegularExpression(pattern: "^.*?<body[^>]*>\\s*", options: [.caseInsensitive, .dotMatchesLineSeparators])
+			let closeTag = try! NSRegularExpression(pattern: "\\s*</\\s*body>.*$", options: [.caseInsensitive, .dotMatchesLineSeparators])
 			
-			let sansOpen = openTag.stringByReplacingMatchesInString(html, options: [], range: NSRange(location: 0, length: html.characters.count), withTemplate: "")
-			return closeTag.stringByReplacingMatchesInString(sansOpen, options: [], range: NSRange(location: 0, length: sansOpen.characters.count), withTemplate: "")
-		} else if html.containsString("<html") {
+			let sansOpen = openTag.stringByReplacingMatches(in:html, options: [], range: NSRange(location: 0, length: html.characters.count), withTemplate: "")
+			return closeTag.stringByReplacingMatches(in:sansOpen, options: [], range: NSRange(location: 0, length: sansOpen.characters.count), withTemplate: "")
+		} else if html.contains("<html") {
 			// Technically, `<body>` is optional in an HTML file, so we have to handle the case where it's omitted.
-			let openTag = try! NSRegularExpression(pattern: "^.*?<html[^>]*>\\s*", options: .CaseInsensitive)
-			let closeTag = try! NSRegularExpression(pattern: "\\s*</\\s*html>.*$", options: .CaseInsensitive)
+			let openTag = try! NSRegularExpression(pattern: "^.*?<html[^>]*>\\s*", options: [.caseInsensitive, .dotMatchesLineSeparators])
+			let closeTag = try! NSRegularExpression(pattern: "\\s*</\\s*html>.*$", options: [.caseInsensitive, .dotMatchesLineSeparators])
 			
-			let sansOpen = openTag.stringByReplacingMatchesInString(html, options: [], range: NSRange(location: 0, length: html.characters.count), withTemplate: "")
-			return closeTag.stringByReplacingMatchesInString(sansOpen, options: [], range: NSRange(location: 0, length: sansOpen.characters.count), withTemplate: "")
+			let sansOpen = openTag.stringByReplacingMatches(in:html, options: [], range: NSRange(location: 0, length: html.characters.count), withTemplate: "")
+			return closeTag.stringByReplacingMatches(in:sansOpen, options: [], range: NSRange(location: 0, length: sansOpen.characters.count), withTemplate: "")
 		}
 		return html
 	}
